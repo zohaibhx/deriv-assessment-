@@ -1,0 +1,31 @@
+{
+  "qa_issues": [
+    {
+      "segment_id": "seg_1",
+      "language": "ar",
+      "checks": [
+        "MISSING_TRANSLATION"
+      ]
+    },
+    {
+      "segment_id": "seg_4",
+      "language": "ar",
+      "checks": [
+        "MISSING_TRANSLATION"
+      ]
+    },
+    {
+      "segment_id": "seg_5",
+      "language": "ar",
+      "checks": [
+        "MISSING_TRANSLATION"
+      ]
+    }
+  ],
+  "summary": {
+    "total_segments_processed": 0,
+    "estimated_token_usage": 0.0,
+    "estimated_cost_usd": "$0.000000",
+    "status": "Finalised"
+  }
+}
