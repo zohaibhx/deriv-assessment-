@@ -1,0 +1,447 @@
+## BUILD
+
+Build a replayable multilingual translation pipeline for Deriv website content. The pipeline must fetch website pages, extract translatable content while preserving HTML structure, identify protected brand and product terms, translate content into target languages, and run basic QA to detect untranslated text, broken placeholders, or corrupted markup.
+
+This is not a one-shot translation task. The evaluator will run your pipeline from a clean checkout, may replace the page list or target languages, and will verify that extraction, term protection, translation, QA, and cost tracking are staged and auditable.
+
+The pipeline must preserve intermediate artifacts, support Arabic right-to-left output, log translation calls, and avoid re-translating unchanged or duplicate segments where possible.
+
+---
+
+## INPUT FILES
+
+Your pipeline must read configuration from disk:
+
+- `pages.json`
+- `target_languages.json`
+
+The sample page set below is provided for local testing.
+
+---
+
+## SAMPLE `pages.json`
+
+```json
+{
+  "pages": [
+    "https://deriv.com/",
+    "https://deriv.com/markets/forex/",
+    "https://deriv.com/blog/posts/eur-usd-rebounds-dollar-demand-fades/",
+    "https://deriv.com/regulatory/",
+    "https://deriv.com/trading-platforms/deriv-bot/"
+  ]
+}
+```
+
+---
+
+## SAMPLE `target_languages.json`
+
+```json
+{
+  "target_languages": [
+    {
+      "code": "ar",
+      "name": "Arabic",
+      "direction": "rtl"
+    },
+    {
+      "code": "ms",
+      "name": "Bahasa Malaysia",
+      "direction": "ltr"
+    }
+  ]
+}
+```
+
+Arabic is the highest-priority language and must be included when only one target language is selected.
+
+The evaluator may replace the page list or target language list with equivalent inputs.
+
+---
+
+## PIPELINE STAGES
+
+Your implementation must enforce these stages in code:
+
+```text
+INIT
+ -> CONFIG_LOADED
+ -> PAGES_FETCHED
+ -> CONTENT_EXTRACTED
+ -> PROTECTED_TERMS_IDENTIFIED
+ -> SEGMENTS_PREPARED
+ -> SEGMENTS_DEDUPED_OR_CACHE_CHECKED
+ -> TRANSLATION_COMPLETE
+ -> HTML_RECONSTRUCTED
+ -> QA_COMPLETE
+ -> COST_REPORT_GENERATED
+ -> RESULTS_FINALISED
+```
+
+Final translated output must not be produced before extraction, protected-term handling, translation, and QA have completed.
+
+---
+
+## MUST COMPLETE
+
+### 1. Content Extraction
+
+Fetch and process at least 1-2 pages from `pages.json`.
+
+Extract translatable content such as:
+
+- headings
+- body text
+- CTAs
+- navigation labels
+- alt text, where appropriate
+
+Preserve:
+
+- HTML structure
+- links
+- formatting tags
+- placeholders
+- tokens
+- variables
+- inline markup
+
+Save extracted segments to `extracted_segments.json`.
+
+Each segment must include:
+
+```json
+{
+  "segment_id": "string",
+  "page_url": "string",
+  "html_path": "string",
+  "source_text": "string",
+  "contains_html": true,
+  "placeholders": ["string"],
+  "links": ["string"]
+}
+```
+
+Do not translate technical placeholders, URLs, code snippets, tracking parameters, or HTML tags.
+
+---
+
+### 2. Term Protection
+
+Identify brand names, product names, market names, platform names, and terms that should remain untranslated.
+
+The protected list is not provided. Your pipeline must infer it from the page content and product context.
+
+Examples likely to require protection include:
+
+```text
+Deriv
+Deriv Bot
+Deriv MT5
+Deriv X
+SmartTrader
+Forex
+Synthetic Indices
+Multipliers
+CFDs
+```
+
+Save protected terms to `protected_terms.json`.
+
+Before translation, protect these terms using a reversible mechanism such as placeholders.
+
+After translation, restore them exactly.
+
+The same protected term must remain unchanged in every target language.
+
+---
+
+### 3. Multilingual Translation
+
+Translate extracted content into at least 2 target languages from `target_languages.json`.
+
+Arabic must be included when only one language is selected.
+
+For each translation call, instruct the model to:
+
+- preserve HTML tags
+- preserve placeholders
+- preserve protected terms
+- preserve tone and intent
+- use natural language for the target locale
+- respect RTL requirements for Arabic
+
+Save translations to:
+
+```text
+translations/{language_code}/
+```
+
+Each translated segment must include:
+
+```json
+{
+  "segment_id": "string",
+  "language_code": "ar",
+  "source_text": "string",
+  "translated_text": "string",
+  "protected_terms_restored": true,
+  "qa_status": "pending"
+}
+```
+
+---
+
+### 4. HTML Reconstruction
+
+Reconstruct translated output while preserving the original page structure.
+
+For Arabic output, include appropriate RTL metadata where applicable, such as:
+
+```html
+<html lang="ar" dir="rtl">
+```
+
+or equivalent container-level direction handling.
+
+Save reconstructed output under:
+
+```text
+output/{language_code}/
+```
+
+---
+
+### 5. Basic QA
+
+Run deterministic QA checks after translation.
+
+At minimum, flag:
+
+- untranslated segments
+- missing protected terms
+- altered protected terms
+- placeholder corruption
+- missing or changed URLs
+- broken HTML tags
+- empty translations
+- RTL direction missing for Arabic output
+
+Save QA results to `qa_report.json`.
+
+Each issue must include:
+
+```json
+{
+  "segment_id": "string",
+  "language_code": "ar",
+  "severity": "critical | warning | info",
+  "issue_type": "string",
+  "source_text": "string",
+  "translated_text": "string",
+  "details": "string"
+}
+```
+
+Critical QA issues must be visible in terminal output.
+
+---
+
+## SHOULD ATTEMPT
+
+### 6. Cost Tracking and Efficiency
+
+Log token usage or estimated token usage per translation call.
+
+Calculate:
+
+- estimated cost per page
+- estimated cost per language
+- estimated total run cost
+
+Save output to `cost_report.json`.
+
+Apply at least one efficiency strategy:
+
+- segment deduplication
+- translation cache
+- batching
+- content hashing
+- skip unchanged segments
+
+Explain the strategy in `cost_report.json`.
+
+---
+
+### 7. Translation Cache
+
+Cache translations by content hash, target language, and protected-term version.
+
+On repeat runs, reuse cached translations where possible.
+
+Save cache metadata to `translation_cache.json`.
+
+---
+
+## STRETCH
+
+### 8. Scale Up
+
+Extend the pipeline to all 5 pages and 5 or more target languages.
+
+The same extraction, term protection, translation, reconstruction, QA, and cost tracking requirements apply.
+
+---
+
+### 9. Full QA Pipeline
+
+Add LLM-assisted QA after deterministic QA.
+
+The QA stage should check:
+
+- grammar
+- fluency
+- tone
+- cultural appropriateness
+- meaning preservation
+
+Save output to `llm_qa_report.json`.
+
+Each issue must include severity and a suggested correction.
+
+---
+
+### 10. Full Metrics and Observability
+
+Track per run, page, and language:
+
+- translation accuracy or QA pass rate
+- latency
+- cache hit rate
+- error rate
+- number of translated segments
+- number of skipped cached segments
+
+Save output to `run_metrics.json`.
+
+---
+
+## REQUIRED ARTIFACTS
+
+Your repository must produce:
+
+- `pages.json`
+- `target_languages.json`
+- `extracted_segments.json`
+- `protected_terms.json`
+- `translations/`
+- `output/`
+- `qa_report.json`
+- `cost_report.json`, if attempted
+- `translation_cache.json`, if attempted
+- `llm_qa_report.json`, if attempted
+- `run_metrics.json`, if attempted
+- `llm_calls.jsonl`
+
+---
+
+## `llm_calls.jsonl` REQUIREMENTS
+
+Log one JSON object per AI or translation call.
+
+Each record must include:
+
+```json
+{
+  "stage": "string",
+  "page_url": "string | null",
+  "language_code": "string | null",
+  "timestamp": "ISO-8601 timestamp",
+  "provider": "string",
+  "model": "string",
+  "prompt_hash": "string",
+  "input_artifacts": ["path"],
+  "output_artifact": "path",
+  "estimated_input_tokens": 0,
+  "estimated_output_tokens": 0
+}
+```
+
+There must be separate records for:
+
+- protected-term identification, if AI-assisted
+- translation calls
+- LLM QA calls, if attempted
+
+---
+
+## VALIDATION REQUIREMENTS
+
+The repository must include a validation command, for example:
+
+```bash
+make validate
+```
+
+or:
+
+```bash
+python validate.py
+```
+
+The validation command must check that:
+
+- required artifacts exist
+- JSON files are valid
+- at least 1-2 pages were processed
+- Arabic is included when only one language is selected
+- extracted segments preserve source metadata
+- protected terms are restored unchanged
+- placeholders are not corrupted
+- URLs are preserved
+- translated output files exist
+- Arabic output includes RTL handling
+- QA report is generated
+- critical QA issues are surfaced
+- LLM call logs or translation logs exist
+
+---
+
+## EXECUTION REQUIREMENTS
+
+The evaluator will run the pipeline from a clean checkout.
+
+Generated artifacts may be deleted before evaluation.
+
+The evaluator may replace `pages.json` or `target_languages.json`.
+
+Static precomputed outputs are not sufficient.
+
+The solution must actually run the staged pipeline and regenerate required artifacts.
+
+---
+
+## TOOLS
+
+Any programming language may be used.
+
+Python, TypeScript, or JavaScript are preferred.
+
+Any LLM provider or translation model may be used.
+
+Any scraping, parsing, or HTML-processing libraries may be used if dependencies are documented.
+
+---
+
+## TECHNICAL CONSTRAINTS
+
+- Preserve HTML structure.
+- Preserve links, placeholders, tokens, and formatting.
+- Protected terms must pass through unchanged.
+- Arabic output must support RTL.
+- Translation must preserve tone and intent.
+- Basic QA must run after translation.
+- Do not silently drop failed pages or segments.
+- Do not use real user data.
+- Static precomputed outputs are not sufficient.
